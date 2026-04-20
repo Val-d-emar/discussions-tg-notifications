@@ -1,0 +1,22 @@
+name: Discussions Notifier
+
+on:
+  discussion_comment:
+    types: [created, edited]
+  discussion:
+    types: [created]
+
+permissions:
+  discussions: read
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Val-d-emar/discussions-tg-notifications@dev
+        with:
+          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # message_thread_id: "12345" # Опционально для топиков
+          language: "ru"
