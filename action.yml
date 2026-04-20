@@ -1,0 +1,135 @@
+name: "Telegram Discussion Notifications"
+description: "Notifications in Telegram about new discussions and comments on GitHub Discussions"
+author: "AI Agent"
+branding:
+  icon: "message-square"
+  color: "blue"
+
+inputs:
+  bot_token:
+    description: "Telegram Bot Token"
+    required: true
+  chat_id:
+    description: "Telegram Chat ID"
+    required: true
+  message_thread_id:
+    description: "ID темы (Thread ID) для супергрупп с топиками"
+    required: false
+  user_map:
+    description: "Маппинг имен (gh_user=tg_user), разделенный переносом строки"
+    required: false
+  ignore_bots:
+    description: "Игнорировать действия ботов"
+    required: false
+    default: "true"
+  language:
+    description: "Язык уведомлений (ru / en)"
+    required: false
+    default: "ru"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Send Telegram Notification
+      shell: bash
+      env:
+        TOKEN: ${{ inputs.bot_token }}
+        CHAT_ID: ${{ inputs.chat_id }}
+        THREAD_ID: ${{ inputs.message_thread_id }}
+        USER_MAP: ${{ inputs.user_map }}
+        IGNORE_BOTS: ${{ inputs.ignore_bots }}
+        LANG_SET: ${{ inputs.language }}
+
+        # Данные из контекста события
+        EVENT_NAME: ${{ github.event_name }}
+        ACTION: ${{ github.event.action }}
+        ACTOR: ${{ github.actor }}
+
+        D_TITLE: ${{ github.event.discussion.title }}
+        D_URL: ${{ github.event.discussion.html_url }}
+        C_URL: ${{ github.event.comment.html_url }}
+        C_BODY: ${{ github.event.comment.body }}
+
+      run: |
+        # 1. Проверка на бота
+        if [[ "$IGNORE_BOTS" == "true" && "$ACTOR" == *"[bot]"* ]]; then
+            echo "Actor is a bot. Skipping."
+            exit 0
+        fi
+
+        # 2. Локализация интерфейса
+        if [[ "$LANG_SET" == "en" ]]; then
+            T_NEW_DISC="📢 <b>New Discussion</b>"
+            T_NEW_COMM="💬 <b>New Comment</b>"
+            T_FROM="👤 From"
+            T_TOPIC="📌 Topic"
+            T_LINK="🔗 View on GitHub"
+        else
+            T_NEW_DISC="📢 <b>Новое обсуждение</b>"
+            T_NEW_COMM="💬 <b>Новый комментарий</b>"
+            T_FROM="👤 От"
+            T_TOPIC="📌 Тема"
+            T_LINK="🔗 Перейти к обсуждению"
+        fi
+
+        # 3. Функция маппинга ников
+        get_tg_nick() {
+            local gh_name=$(echo "$1" | tr '[:upper:]' '[:lower:]' | xargs)
+            if [ -z "$USER_MAP" ]; then echo "@$1"; return; fi
+            
+            local found=$(echo "$USER_MAP" | grep -i "^${gh_name}=" | cut -d'=' -f2 | xargs)
+            if [ -n "$found" ]; then
+                [[ "$found" != @* ]] && found="@$found"
+                echo "$found"
+            else
+                echo "@$1"
+            fi
+        }
+
+        STATUS=""
+        URL=""
+        ACTOR_TG=$(get_tg_nick "$ACTOR")
+
+        # 4. Определение типа события
+        if [[ "$EVENT_NAME" == "discussion" ]]; then
+            if [[ "$ACTION" == "created" ]]; then
+                STATUS="$T_NEW_DISC"
+                URL="$D_URL"
+            fi
+        elif [[ "$EVENT_NAME" == "discussion_comment" ]]; then
+            if [[ "$ACTION" == "created" ]]; then
+                STATUS="$T_NEW_COMM"
+                URL="$C_URL"
+            fi
+        fi
+
+        # Если событие не создание (например, удаление или редактирование)
+        if [[ -z "$STATUS" ]]; then
+            echo "Event $EVENT_NAME action $ACTION is not handled. Skipping."
+            exit 0
+        fi
+
+        # 5. Сборка сообщения
+        MESSAGE=$(echo -e "$STATUS\n\n$T_TOPIC: <b>$D_TITLE</b>\n$T_FROM: $ACTOR_TG\n\n<a href=\"$URL\">$T_LINK</a>")
+
+        # 6. Отправка в Telegram
+        CURL_ARGS=(
+            -s -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage"
+            -d "chat_id=${CHAT_ID}"
+            -d "parse_mode=HTML"
+            -d "disable_web_page_preview=true"
+            --data-urlencode "text=$MESSAGE"
+        )
+
+        if [[ -n "$THREAD_ID" ]]; then
+            CURL_ARGS+=(-d "message_thread_id=${THREAD_ID}")
+        fi
+
+        HTTP_RESPONSE=$(curl -w "%{http_code}" -o /dev/null "${CURL_ARGS[@]}")
+
+        if [[ "$HTTP_RESPONSE" != "200" ]]; then
+            echo "Error sending Telegram message! HTTP code: $HTTP_RESPONSE"
+            exit 1
+        fi
+
+        echo "Notification successfully sent."
