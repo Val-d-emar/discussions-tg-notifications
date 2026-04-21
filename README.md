@@ -43,6 +43,10 @@ GitHub Action for sending notifications about events in GitHub Discussions to a 
 | `language` | Notification language (`en`, `ru`) | No | `ru` |
 | `events` | Comma-separated list of events (`created`, `edited`) | No | `created` |
 
+### License
+
+## This project is licensed under the[GNU General Public License v3.0 (GPL-3.0)](LICENSE).
+
 ---
 
 <a name="русский"></a>
@@ -83,3 +87,7 @@ GitHub Action для отправки уведомлений о событиях
 | `ignore_bots` | Игнорировать действия ботов | Нет | `true` |
 | `language` | Язык уведомлений (`en`, `ru`) | Нет | `ru` |
 | `events` | Список событий через запятую (`created`, `edited`) | Нет | `created` |
+
+### Лицензия
+
+Этот проект распространяется под лицензией [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
