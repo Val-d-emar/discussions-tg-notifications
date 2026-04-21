@@ -4,6 +4,9 @@ on:
   pull_request:
     types: [review_requested]
 
+  pull_request_target:
+    types: [assigned]
+
 jobs:
   review-code:
     if: github.event.requested_reviewer.login == 'ai-agent-net' || github.event.assignee.login == 'ai-agent-net'
