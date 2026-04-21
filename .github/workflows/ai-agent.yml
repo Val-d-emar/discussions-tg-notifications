@@ -1,3 +1,5 @@
+name: AI-Agent
+
 on:
   discussion_comment:
     types: [created, edited]
@@ -8,6 +10,10 @@ permissions:
   discussions: write
   contents: write
   pull-requests: write
+
+concurrency:
+  group: ai-agent-${{ github.event.action }}-${{ github.actor.login || github.run_id }}
+  cancel-in-progress: false
 
 jobs:
   gemini_respond:
