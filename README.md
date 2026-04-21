@@ -1,9 +1,12 @@
 # Telegram Discussion Notifications
 
-[Русский](#russian) | [English](#english)
+[🇷🇺 Русский](#русский) | [🇬🇧 English](#english)
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
 <a name="english"></a>
-## English
+
+## 🇬🇧 English
 
 GitHub Action for sending notifications about events in GitHub Discussions to a Telegram chat.
 
@@ -42,8 +45,9 @@ GitHub Action for sending notifications about events in GitHub Discussions to a 
 
 ---
 
-<a name="russian"></a>
-## Russian
+<a name="русский"></a>
+
+## 🇷🇺 Русский
 
 GitHub Action для отправки уведомлений о событиях в GitHub Discussions в Telegram чат.
 
