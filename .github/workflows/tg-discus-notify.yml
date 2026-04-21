@@ -10,6 +10,10 @@ permissions:
   discussions: read
   contents: read
 
+concurrency:
+  group: th-notify-${{ github.event.action }}-${{ github.actor.login || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   notify:
     runs-on: ubuntu-latest
