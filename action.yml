@@ -26,6 +26,10 @@ inputs:
     description: "Язык уведомлений (ru / en)"
     required: false
     default: "ru"
+  events:
+    description: "Список событий для уведомления через запятую (created, edited)"
+    required: false
+    default: "created"
 
 runs:
   using: "composite"
@@ -39,6 +43,7 @@ runs:
         USER_MAP: ${{ inputs.user_map }}
         IGNORE_BOTS: ${{ inputs.ignore_bots }}
         LANG_SET: ${{ inputs.language }}
+        EVENTS: ${{ inputs.events }}
 
         # Данные из контекста события
         EVENT_NAME: ${{ github.event_name }}
@@ -46,6 +51,7 @@ runs:
         ACTOR: ${{ github.actor }}
 
         D_TITLE: ${{ github.event.discussion.title }}
+        D_BODY: ${{ github.event.discussion.body }}
         D_URL: ${{ github.event.discussion.html_url }}
         C_URL: ${{ github.event.comment.html_url }}
         C_BODY: ${{ github.event.comment.body }}
@@ -60,19 +66,23 @@ runs:
         # 2. Локализация интерфейса
         if [[ "$LANG_SET" == "en" ]]; then
             T_NEW_DISC="📢 <b>New Discussion</b>"
+            T_EDIT_DISC="📝 <b>Discussion Edited</b>"
             T_NEW_COMM="💬 <b>New Comment</b>"
+            T_EDIT_COMM="📝 <b>Comment Edited</b>"
             T_FROM="👤 From"
             T_TOPIC="📌 Topic"
             T_LINK="🔗 View on GitHub"
         else
             T_NEW_DISC="📢 <b>Новое обсуждение</b>"
+            T_EDIT_DISC="📝 <b>Обсуждение отредактировано</b>"
             T_NEW_COMM="💬 <b>Новый комментарий</b>"
+            T_EDIT_COMM="📝 <b>Комментарий отредактирован</b>"
             T_FROM="👤 От"
             T_TOPIC="📌 Тема"
             T_LINK="🔗 Перейти к обсуждению"
         fi
 
-        # 3. Функция маппинга ников
+        # 3. Функции-хелперы
         get_tg_nick() {
             local gh_name=$(echo "$1" | tr '[:upper:]' '[:lower:]' | xargs)
             if [ -z "$USER_MAP" ]; then echo "@$1"; return; fi
@@ -86,33 +96,73 @@ runs:
             fi
         }
 
-        STATUS=""
-        URL=""
-        ACTOR_TG=$(get_tg_nick "$ACTOR")
+        escape_html() {
+            echo "$1" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g; s/'"'"'/\&#39;/g'
+        }
 
-        # 4. Определение типа события
-        if [[ "$EVENT_NAME" == "discussion" ]]; then
-            if [[ "$ACTION" == "created" ]]; then
-                STATUS="$T_NEW_DISC"
-                URL="$D_URL"
+        truncate_body() {
+            local body="$1"
+            if [ ${#body} -gt 255 ]; then
+                echo "${body:0:252}..."
+            else
+                echo "$body"
             fi
-        elif [[ "$EVENT_NAME" == "discussion_comment" ]]; then
-            if [[ "$ACTION" == "created" ]]; then
-                STATUS="$T_NEW_COMM"
-                URL="$C_URL"
-            fi
-        fi
+        }
 
-        # Если событие не создание (например, удаление или редактирование)
-        if [[ -z "$STATUS" ]]; then
-            echo "Event $EVENT_NAME action $ACTION is not handled. Skipping."
+        # 4. Проверка фильтра событий
+        SHOULD_NOTIFY=false
+        IFS=',' read -ra ADDR <<< "$EVENTS"
+        for i in "${ADDR[@]}"; do
+            if [[ "$(echo $i | xargs)" == "$ACTION" ]]; then
+                SHOULD_NOTIFY=true
+                break
+            fi
+        done
+
+        if [[ "$SHOULD_NOTIFY" != "true" ]]; then
+            echo "Action $ACTION is not in the events filter ($EVENTS). Skipping."
             exit 0
         fi
 
-        # 5. Сборка сообщения
-        MESSAGE=$(echo -e "$STATUS\n\n$T_TOPIC: <b>$D_TITLE</b>\n$T_FROM: $ACTOR_TG\n\n<a href=\"$URL\">$T_LINK</a>")
+        STATUS=""
+        URL=""
+        BODY_CONTENT=""
+        ACTOR_TG=$(get_tg_nick "$ACTOR")
 
-        # 6. Отправка в Telegram
+        # 5. Определение типа события
+        if [[ "$EVENT_NAME" == "discussion" ]]; then
+            BODY_CONTENT="$D_BODY"
+            URL="$D_URL"
+            if [[ "$ACTION" == "created" ]]; then
+                STATUS="$T_NEW_DISC"
+            elif [[ "$ACTION" == "edited" ]]; then
+                STATUS="$T_EDIT_DISC"
+            fi
+        elif [[ "$EVENT_NAME" == "discussion_comment" ]]; then
+            BODY_CONTENT="$C_BODY"
+            URL="$C_URL"
+            if [[ "$ACTION" == "created" ]]; then
+                STATUS="$T_NEW_COMM"
+            elif [[ "$ACTION" == "edited" ]]; then
+                STATUS="$T_EDIT_COMM"
+            fi
+        fi
+
+        # Если событие не обработано
+        if [[ -z "$STATUS" ]]; then
+            echo "Event $EVENT_NAME action $ACTION is not explicitly handled. Skipping."
+            exit 0
+        fi
+
+        # 6. Подготовка тела сообщения
+        TRUNCATED_BODY=$(truncate_body "$BODY_CONTENT")
+        ESCAPED_BODY=$(escape_html "$TRUNCATED_BODY")
+        ESCAPED_TITLE=$(escape_html "$D_TITLE")
+
+        # 7. Сборка сообщения
+        MESSAGE=$(echo -e "$STATUS\n\n$T_TOPIC: <b>$ESCAPED_TITLE</b>\n$T_FROM: $ACTOR_TG\n\n$ESCAPED_BODY\n\n<a href=\"$URL\">$T_LINK</a>")
+
+        # 8. Отправка в Telegram
         CURL_ARGS=(
             -s -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage"
             -d "chat_id=${CHAT_ID}"
