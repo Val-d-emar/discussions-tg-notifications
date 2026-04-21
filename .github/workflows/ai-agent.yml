@@ -18,7 +18,7 @@ concurrency:
 jobs:
   gemini_respond:
     if: >
-      github.actor == 'Val-d-emar' && (
+      github.actor.login == github.repository_owner && (
       github.event_name == 'discussion_comment' && contains(github.event.comment.body, '@ai-agent-net') ||
       github.event_name == 'discussion' && contains(github.event.discussion.body, '@ai-agent-net'))
     runs-on: ubuntu-latest
