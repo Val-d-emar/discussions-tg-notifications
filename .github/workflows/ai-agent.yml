@@ -6,7 +6,8 @@ on:
     
 permissions:
   discussions: write
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   gemini_respond:
