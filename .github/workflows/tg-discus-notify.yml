@@ -23,5 +23,15 @@ jobs:
           bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
           # message_thread_id: "12345" # Опционально для топиков
+          user_map: ${{ secrets.TELEGRAM_USER_MAP }}
+          # формат секрета:
+          ####################################
+          # gh_nickname=telegram_nickname
+          # gh_nickname1=telegram_nickname2
+          # ...
+          # gh_nicknameN=telegram_nicknameN
+          ####################################
+          # gh_nickname - логин в гитхабе
+          # telegram_nickname - логин в телеграме
           language: "ru"
           events: "created,edited"
