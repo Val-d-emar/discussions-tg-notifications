@@ -127,7 +127,7 @@ runs:
         STATUS=""
         URL=""
         BODY_CONTENT=""
-        ACTOR_TG=$(get_tg_nick "$ACTOR")
+        # ACTOR_TG=$(get_tg_nick "$ACTOR")
 
         # 5. Определение типа события
         if [[ "$EVENT_NAME" == "discussion" ]]; then
@@ -160,7 +160,7 @@ runs:
         ESCAPED_TITLE=$(escape_html "$D_TITLE")
 
         # 7. Сборка сообщения
-        MESSAGE=$(echo -e "$STATUS\n\n$T_TOPIC: <b>$ESCAPED_TITLE</b>\n$T_FROM: $ACTOR_TG\n\n$ESCAPED_BODY\n\n<a href=\"$URL\">$T_LINK</a>")
+        MESSAGE=$(echo -e "$STATUS\n\n$T_TOPIC: <b>$ESCAPED_TITLE</b>\n$T_FROM: $ACTOR\n\n$ESCAPED_BODY\n\n<a href=\"$URL\">$T_LINK</a>")
 
         # 8. Отправка в Telegram
         CURL_ARGS=(
